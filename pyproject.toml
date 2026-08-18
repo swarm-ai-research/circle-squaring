@@ -1,0 +1,13 @@
+[project]
+name = "circle-squaring"
+version = "0.1.0"
+description = "Discrete analogue of Tarski's circle squaring via bounded-distance matching (after Máthé–Noel–Pikhurko, arXiv:2202.01412)"
+requires-python = ">=3.10"
+dependencies = ["numpy", "matplotlib"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
