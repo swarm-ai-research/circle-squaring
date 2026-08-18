@@ -12,8 +12,13 @@ discrete torus, where every step is finite and checkable, and draws the pieces.
 
 ![example](assets/example.png)
 
-*1600 points, 35 pieces, every piece moved by a single translation. Same color =
+*1600 points, 19 pieces, every piece moved by a single translation. Same color =
 same piece.*
+
+![animation](assets/animation.gif)
+
+*The same decomposition sliding: each piece travels along its (single)
+translation vector.*
 
 ## What it does
 
@@ -27,14 +32,19 @@ Working on the discrete torus `Z_N × Z_N`:
    that only generate a sublattice are rejected (rank 2 mod every prime dividing `N`)
    — the discrete analogue of the paper's "no rational dependencies" property (2.11).
 3. **Bounded matching** (`matching.py`) — a perfect matching `A → B` along `G_d`
-   edges via Hopcroft–Karp, escalating the radius `r = 1, 2, …` and extending the
-   matching at each stage, so displacements stay short. This replaces the paper's
-   bounded integer-valued flow (their Lemma 2.16 reduction); the fact that a small
-   `r` works is the discrete shadow of Laczkovich's discrepancy bounds.
+   edges. Two solvers: Hopcroft–Karp with escalating radius `r = 1, 2, …`
+   (extending the matching at each stage), and the default **min-cost** matching
+   (scipy's sparse LAPJVsp) minimizing total `1 + ‖n‖₁`, which concentrates the
+   bijection on the cheapest displacements — 19 pieces vs. Hopcroft–Karp's 35 on
+   the default instance. Either replaces the paper's bounded integer-valued flow
+   (their Lemma 2.16 reduction); the fact that a small `r` works is the discrete
+   shadow of Laczkovich's discrepancy bounds.
 4. **Pieces** (`pieces.py`) — matched pairs grouped by displacement: each piece is
    translated by a single vector `Σ nᵢxᵢ`. `verify()` checks the pieces partition
    the disk and their translates partition the square exactly.
-5. **Render** (`viz.py`) — both shapes colored by piece.
+5. **Render** (`viz.py`, `anim.py`) — both shapes colored by piece, plus a GIF of
+   the pieces sliding along their translation vectors (smoothstep easing, shortest
+   torus representative of each displacement).
 
 ## Usage
 
@@ -42,8 +52,10 @@ Working on the discrete torus `Z_N × Z_N`:
 PYTHONPATH=src python3 -m circle_squaring --n 128 --side 40 --d 3 --seed 0 --out out
 ```
 
-Outputs `out/pieces.png` and `out/stats.json`. Typical run: 1600 points squared
-into a square in ~0.05 s with ~35 pieces at radius 2.
+Outputs `out/pieces.png`, `out/animation.gif`, and `out/stats.json`. Typical run:
+1600 points squared in ~0.1 s, 19 pieces at radius 2 with the default min-cost
+matcher (`--matcher hopcroft-karp` for the flow-style escalating matcher,
+`--no-gif` to skip the animation).
 
 Tests:
 
@@ -51,7 +63,7 @@ Tests:
 python3 tests/test_equidecomposition.py    # or: pytest tests/
 ```
 
-Requires Python ≥ 3.10, numpy, matplotlib.
+Requires Python ≥ 3.10, numpy, scipy, matplotlib, pillow.
 
 ## What this is *not*
 
@@ -78,7 +90,7 @@ grouping it by displacement *is* the equidecomposition.
 ## Layout
 
 ```
-src/circle_squaring/   shapes, graph, matching, pieces, viz, CLI
+src/circle_squaring/   shapes, graph, matching, pieces, viz, anim, CLI
 tests/                 pipeline and unit tests (plain python or pytest)
 docs/paper-notes.md    proof walkthrough of arXiv:2202.01412
 assets/example.png     committed example render

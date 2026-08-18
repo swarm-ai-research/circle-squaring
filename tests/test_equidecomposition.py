@@ -44,6 +44,42 @@ def test_full_pipeline_small():
     assert all(max(abs(c) for c in p.label) <= radius for p in pieces)
 
 
+def test_min_cost_matching_verifies_and_uses_fewer_or_equal_pieces():
+    from circle_squaring import min_cost_matching
+
+    n, side = 64, 16
+    disk, square = disk_and_square(n, side)
+    vectors = random_vectors(3, n, seed=0)
+
+    hk_match, _, hk_table = bounded_matching(disk, square, vectors, n)
+    hk_pieces = extract_pieces(disk, square, hk_match, hk_table, n)
+
+    mc_match, radius, mc_table = min_cost_matching(disk, square, vectors, n)
+    assert sorted(mc_match) == list(range(side * side))
+    mc_pieces = extract_pieces(disk, square, mc_match, mc_table, n)
+    verify(mc_pieces, disk, square, n)
+    assert len(mc_pieces) <= len(hk_pieces)
+    assert all(max(abs(c) for c in p.label) <= radius for p in mc_pieces)
+
+
+def test_animation_writes_gif(tmp_path=None):
+    import tempfile
+    from pathlib import Path
+
+    from circle_squaring import min_cost_matching, render_animation
+
+    n, side = 64, 12
+    disk, square = disk_and_square(n, side)
+    vectors = random_vectors(3, n, seed=0)
+    match_l, _, table = min_cost_matching(disk, square, vectors, n)
+    pieces = extract_pieces(disk, square, match_l, table, n)
+    out_dir = Path(tmp_path) if tmp_path else Path(tempfile.mkdtemp())
+    gif = out_dir / "anim.gif"
+    render_animation(pieces, n, str(gif), frames=6, hold=2, scale=2)
+    assert gif.stat().st_size > 0
+    assert gif.read_bytes()[:6] in (b"GIF87a", b"GIF89a")
+
+
 def test_seed_changes_vectors_but_pipeline_still_verifies():
     n, side = 64, 16
     disk, square = disk_and_square(n, side)

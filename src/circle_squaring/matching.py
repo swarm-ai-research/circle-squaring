@@ -9,6 +9,11 @@ a finite r suffices in the continuum with probability 1.
 
 Matchings found at radius r are kept and extended at radius r + 1, so the
 final bijection is biased toward short displacements and few pieces.
+
+`min_cost_matching` goes further: among all perfect matchings at the smallest
+workable radius, it finds one minimizing the total displacement cost
+sum(1 + ||n||_1), which concentrates the bijection on the cheapest few
+displacements and typically cuts the piece count well below Hopcroft-Karp's.
 """
 
 from __future__ import annotations
@@ -101,6 +106,53 @@ def bounded_matching(
         match_l, match_r = hopcroft_karp(adj, len(b_points), match_l, match_r)
         if all(v != -1 for v in match_l):
             return match_l, r, table
+    raise RuntimeError(
+        f"no perfect matching up to radius {r_max}; "
+        "try larger r_max, more vectors, or a different seed"
+    )
+
+
+def min_cost_matching(
+    a_points: list[Vec],
+    b_points: list[Vec],
+    vectors: list[Vec],
+    n: int,
+    r_max: int = 8,
+) -> tuple[list[int], int, dict[Vec, tuple[int, ...]]]:
+    """Minimum-cost perfect matching A -> B; same interface as bounded_matching.
+
+    Edge cost is 1 + ||n||_1 for the displacement's canonical label, so the
+    optimum reuses the cheapest displacements as much as possible. Solved with
+    scipy's sparse LAPJVsp; the radius escalates until a perfect matching
+    exists, then one more optimization pass runs at that radius.
+    """
+    import numpy as np
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import min_weight_full_bipartite_matching
+
+    b_index = {b: i for i, b in enumerate(b_points)}
+    for r in range(1, r_max + 1):
+        table = displacement_table(vectors, r, n)
+        rows, cols, costs = [], [], []
+        for i, (ax, ay) in enumerate(a_points):
+            for (dx, dy), n_vec in table.items():
+                j = b_index.get(((ax + dx) % n, (ay + dy) % n))
+                if j is not None:
+                    rows.append(i)
+                    cols.append(j)
+                    costs.append(1 + sum(abs(c) for c in n_vec))
+        graph = csr_matrix(
+            (np.array(costs), (np.array(rows), np.array(cols))),
+            shape=(len(a_points), len(b_points)),
+        )
+        try:
+            row_ind, col_ind = min_weight_full_bipartite_matching(graph)
+        except ValueError:  # no perfect matching at this radius
+            continue
+        match_l = [-1] * len(a_points)
+        for i, j in zip(row_ind, col_ind):
+            match_l[i] = int(j)
+        return match_l, r, table
     raise RuntimeError(
         f"no perfect matching up to radius {r_max}; "
         "try larger r_max, more vectors, or a different seed"

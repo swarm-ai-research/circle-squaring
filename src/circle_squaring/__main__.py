@@ -10,8 +10,9 @@ import json
 import time
 from pathlib import Path
 
+from .anim import render_animation
 from .graph import random_vectors
-from .matching import bounded_matching
+from .matching import bounded_matching, min_cost_matching
 from .pieces import extract_pieces, verify
 from .shapes import disk_and_square
 from .viz import render
@@ -24,6 +25,16 @@ def main() -> None:
     parser.add_argument("--d", type=int, default=3, help="number of translation vectors")
     parser.add_argument("--seed", type=int, default=0, help="RNG seed for the vectors")
     parser.add_argument("--r-max", type=int, default=8, help="max matching radius in G_d")
+    parser.add_argument(
+        "--matcher",
+        choices=["min-cost", "hopcroft-karp"],
+        default="min-cost",
+        help="min-cost minimizes total displacement (fewest pieces)",
+    )
+    parser.add_argument(
+        "--no-gif", action="store_true", help="skip the sliding-pieces animation"
+    )
+    parser.add_argument("--frames", type=int, default=40, help="animation frames")
     parser.add_argument("--out", type=str, default="out", help="output directory")
     args = parser.parse_args()
 
@@ -33,9 +44,8 @@ def main() -> None:
     t0 = time.time()
     disk, square = disk_and_square(args.n, args.side)
     vectors = random_vectors(args.d, args.n, args.seed)
-    match_l, radius, table = bounded_matching(
-        disk, square, vectors, args.n, r_max=args.r_max
-    )
+    match = min_cost_matching if args.matcher == "min-cost" else bounded_matching
+    match_l, radius, table = match(disk, square, vectors, args.n, r_max=args.r_max)
     pieces = extract_pieces(disk, square, match_l, table, args.n)
     verify(pieces, disk, square, args.n)
     elapsed = time.time() - t0
@@ -46,6 +56,7 @@ def main() -> None:
         "points_per_shape": args.side**2,
         "d": args.d,
         "seed": args.seed,
+        "matcher": args.matcher,
         "vectors": vectors,
         "radius": radius,
         "num_pieces": len(pieces),
@@ -59,9 +70,13 @@ def main() -> None:
         f"r={radius}: {len(pieces)} pieces, translations only"
     )
     render(pieces, args.n, str(out_dir / "pieces.png"), title=title)
+    written = ["pieces.png", "stats.json"]
+    if not args.no_gif:
+        render_animation(pieces, args.n, str(out_dir / "animation.gif"), frames=args.frames)
+        written.append("animation.gif")
 
     print(f"verified equidecomposition: {len(pieces)} pieces at radius {radius}")
-    print(f"wrote {out_dir / 'pieces.png'} and {out_dir / 'stats.json'} in {elapsed:.1f}s")
+    print(f"wrote {', '.join(str(out_dir / f) for f in written)} in {elapsed:.1f}s")
 
 
 if __name__ == "__main__":
