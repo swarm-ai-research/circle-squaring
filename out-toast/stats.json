@@ -1,0 +1,45 @@
+{
+  "n": 128,
+  "side": 40,
+  "points_per_shape": 1600,
+  "d": 3,
+  "seed": 0,
+  "matcher": "toast",
+  "vectors": [
+    [
+      108,
+      81
+    ],
+    [
+      65,
+      34
+    ],
+    [
+      39,
+      5
+    ]
+  ],
+  "radius": 26,
+  "num_pieces": 186,
+  "largest_pieces": [
+    476,
+    237,
+    125,
+    125,
+    67,
+    60,
+    42,
+    35,
+    31,
+    20
+  ],
+  "elapsed_sec": 1.02,
+  "toast": {
+    "repairs": 3848,
+    "max_repair_path": 12,
+    "max_deviation": 7.005100170704012,
+    "blocks": 1374,
+    "diffusion_rounds": 30,
+    "residual_linf": 0.0019617199217504076
+  }
+}

@@ -12,10 +12,12 @@ from pathlib import Path
 
 from .anim import render_animation
 from .graph import random_vectors
+from .local_rounding import toast_matching
 from .matching import bounded_matching, min_cost_matching
 from .pieces import extract_pieces, verify
 from .shapes import disk_and_square
-from .viz import render
+from .toast import build_toast
+from .viz import render, render_toast
 
 
 def main() -> None:
@@ -27,10 +29,16 @@ def main() -> None:
     parser.add_argument("--r-max", type=int, default=8, help="max matching radius in G_d")
     parser.add_argument(
         "--matcher",
-        choices=["min-cost", "hopcroft-karp"],
+        choices=["min-cost", "hopcroft-karp", "toast"],
         default="min-cost",
-        help="min-cost minimizes total displacement (fewest pieces)",
+        help="min-cost minimizes total displacement (fewest pieces); "
+        "toast runs the paper-style local online rounding",
     )
+    parser.add_argument(
+        "--rounds", type=int, default=30, help="toast: diffusion rounds for the real flow"
+    )
+    parser.add_argument("--block", type=int, default=5, help="toast: lattice block side")
+    parser.add_argument("--crust", type=int, default=13, help="toast: final block side")
     parser.add_argument(
         "--no-gif", action="store_true", help="skip the sliding-pieces animation"
     )
@@ -44,8 +52,21 @@ def main() -> None:
     t0 = time.time()
     disk, square = disk_and_square(args.n, args.side)
     vectors = random_vectors(args.d, args.n, args.seed)
-    match = min_cost_matching if args.matcher == "min-cost" else bounded_matching
-    match_l, radius, table = match(disk, square, vectors, args.n, r_max=args.r_max)
+    toast_stats: dict = {}
+    if args.matcher == "toast":
+        match_l, radius, table = toast_matching(
+            disk,
+            square,
+            vectors,
+            args.n,
+            rounds=args.rounds,
+            block=args.block,
+            crust=args.crust,
+            stats_out=toast_stats,
+        )
+    else:
+        match = min_cost_matching if args.matcher == "min-cost" else bounded_matching
+        match_l, radius, table = match(disk, square, vectors, args.n, r_max=args.r_max)
     pieces = extract_pieces(disk, square, match_l, table, args.n)
     verify(pieces, disk, square, args.n)
     elapsed = time.time() - t0
@@ -63,6 +84,8 @@ def main() -> None:
         "largest_pieces": [len(p.points) for p in pieces[:10]],
         "elapsed_sec": round(elapsed, 2),
     }
+    if toast_stats:
+        stats["toast"] = toast_stats
     (out_dir / "stats.json").write_text(json.dumps(stats, indent=2))
 
     title = (
@@ -71,6 +94,10 @@ def main() -> None:
     )
     render(pieces, args.n, str(out_dir / "pieces.png"), title=title)
     written = ["pieces.png", "stats.json"]
+    if args.matcher == "toast":
+        blocks = build_toast(vectors, args.n, block=args.block, crust=args.crust)
+        render_toast(blocks, args.n, str(out_dir / "toast.png"))
+        written.append("toast.png")
     if not args.no_gif:
         render_animation(pieces, args.n, str(out_dir / "animation.gif"), frames=args.frames)
         written.append("animation.gif")

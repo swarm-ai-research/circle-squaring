@@ -80,6 +80,57 @@ def test_animation_writes_gif(tmp_path=None):
     assert gif.read_bytes()[:6] in (b"GIF87a", b"GIF89a")
 
 
+def test_toast_covers_torus_with_bounded_blocks():
+    from circle_squaring import build_toast
+
+    n = 64
+    vectors = random_vectors(3, n, seed=0)
+    blocks = build_toast(vectors, n, block=5, crust=9)
+    flat = [p for block in blocks for p in block]
+    assert len(flat) == n * n  # disjoint cover, nothing missing
+    assert len(set(flat)) == n * n
+    assert all(len(block) <= 5**3 for block in blocks[:-1])
+    assert len(blocks[-1]) <= 9**3
+
+
+def test_diffusion_flow_invariant():
+    import numpy as np
+
+    from circle_squaring.local_rounding import (
+        canonical_generators,
+        demand,
+        diffusion_flow,
+        divergence,
+    )
+
+    n = 64
+    disk, square = disk_and_square(n, 16)
+    vectors = random_vectors(3, n, seed=0)
+    gens = canonical_generators(vectors, n)
+    assert len(gens) == (3**3 - 1) // 2
+    chi = demand(disk, square, n)
+    f, rho = diffusion_flow(chi, gens, rounds=20)
+    assert np.allclose(divergence(f, gens) + rho, chi)  # exact bookkeeping
+    assert np.max(np.abs(rho)) < 0.05  # residual actually shrinks
+
+
+def test_toast_matching_full_pipeline():
+    from circle_squaring import toast_matching
+
+    n, side = 64, 16
+    disk, square = disk_and_square(n, side)
+    vectors = random_vectors(3, n, seed=0)
+    stats: dict = {}
+    match_l, radius, table = toast_matching(
+        disk, square, vectors, n, rounds=20, block=5, crust=9, stats_out=stats
+    )
+    assert sorted(match_l) == list(range(side * side))
+    pieces = extract_pieces(disk, square, match_l, table, n)
+    verify(pieces, disk, square, n)
+    assert stats["max_deviation"] < 6  # integer flow stays near the real flow
+    assert stats["max_repair_path"] <= 12  # repairs are local
+
+
 def test_seed_changes_vectors_but_pipeline_still_verifies():
     n, side = 64, 16
     disk, square = disk_and_square(n, side)

@@ -39,10 +39,18 @@ Working on the discrete torus `Z_N × Z_N`:
    the default instance. Either replaces the paper's bounded integer-valued flow
    (their Lemma 2.16 reduction); the fact that a small `r` works is the discrete
    shadow of Laczkovich's discrepancy bounds.
-4. **Pieces** (`pieces.py`) — matched pairs grouped by displacement: each piece is
+4. **Toast-style local rounding** (`toast.py`, `local_rounding.py`,
+   `--matcher toast`) — the finite analogue of the paper's core construction:
+   a local real flow by lazy diffusion of the demand, then an *online* rounding
+   that commits final integer values block by block (images of small lattice
+   boxes, peeled inward by distance to a reserved "crust" block that closes the
+   flow exactly). No lookahead, no revision, `div g = χ` exact by assertion.
+   It pays for locality in pieces — 186 vs. min-cost's 19 — the toy-scale echo
+   of the paper's ~10²⁰⁰. Full write-up: [docs/toast-rounding.md](docs/toast-rounding.md).
+5. **Pieces** (`pieces.py`) — matched pairs grouped by displacement: each piece is
    translated by a single vector `Σ nᵢxᵢ`. `verify()` checks the pieces partition
    the disk and their translates partition the square exactly.
-5. **Render** (`viz.py`, `anim.py`) — both shapes colored by piece, plus a GIF of
+6. **Render** (`viz.py`, `anim.py`) — both shapes colored by piece, plus a GIF of
    the pieces sliding along their translation vectors (smoothstep easing, shortest
    torus representative of each displacement).
 
@@ -56,6 +64,13 @@ Outputs `out/pieces.png`, `out/animation.gif`, and `out/stats.json`. Typical run
 1600 points squared in ~0.1 s, 19 pieces at radius 2 with the default min-cost
 matcher (`--matcher hopcroft-karp` for the flow-style escalating matcher,
 `--no-gif` to skip the animation).
+
+The paper-style pipeline runs with `--matcher toast` (plus `--rounds`,
+`--block`, `--crust`), also writing `out/toast.png` — the toast cover, whose
+blocks are lattice-box images and so appear as scattered constellations in
+Euclidean view:
+
+![toast](assets/toast.png)
 
 Tests:
 
@@ -73,14 +88,18 @@ simulate, and this demo does not attempt them:
 - **Axiom-of-choice-free structure.** On a finite torus everything is trivially
   "Borel". The paper's achievement — pieces that are Boolean combinations of F_σ
   sets with boundaries of Minkowski dimension < 2 — lives in the continuum.
-- **Local rounding.** We find the matching *globally* with Hopcroft–Karp. The
-  paper's central innovation is an *online, local* rounding of real-valued flows
-  along a "toast sequence" of strip-built sets, so that each piece is a bounded-radius
-  local function of the disk, the square, and the strips. See
-  [docs/paper-notes.md](docs/paper-notes.md) for a walkthrough.
-- **The null residue.** The continuum construction covers only a co-null set
-  locally and re-runs Marks–Unger machinery on the leftover null set; a finite
-  model has no null sets.
+- **Meaningful locality radii.** `--matcher toast` reproduces the paper's online
+  local rounding faithfully in *algorithmic* structure (commit-and-never-revise,
+  local repairs, a crust closing the flow — see
+  [docs/toast-rounding.md](docs/toast-rounding.md)), but at feasible N the graph
+  `G_d` has diameter ~4, so "bounded radius" is trivially satisfied. The
+  continuum locality statement has no finite-N content; what the demo shows
+  instead is its *price* — 186 pieces where global optimization needs 19.
+- **True toast separation.** Components at pairwise `G_d`-distance ≥ 3 with
+  nesting (the paper's Definition 2.14) need room that only exists as N → ∞;
+  the shell-peeling order in `toast.py` is a provable finite substitute, not an
+  implementation of Def. 2.14. Proof walkthrough of the real thing:
+  [docs/paper-notes.md](docs/paper-notes.md).
 
 What *does* survive discretization — and is the point of the demo — is the
 combinatorial core: random translation vectors make the disk and square so
@@ -90,9 +109,10 @@ grouping it by displacement *is* the equidecomposition.
 ## Layout
 
 ```
-src/circle_squaring/   shapes, graph, matching, pieces, viz, anim, CLI
+src/circle_squaring/   shapes, graph, matching, toast, local_rounding, pieces, viz, anim, CLI
 tests/                 pipeline and unit tests (plain python or pytest)
 docs/paper-notes.md    proof walkthrough of arXiv:2202.01412
+docs/toast-rounding.md the toast matcher: design, ordering theorem, measurements
 assets/example.png     committed example render
 ```
 
