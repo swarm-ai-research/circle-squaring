@@ -11,3 +11,12 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+line-length = 100
+# PLW1514 is a preview rule; opt into it alone rather than all of preview.
+preview = true
+
+[tool.ruff.lint]
+select = ["PLW1510", "PLW1514"]
+explicit-preview-rules = true
